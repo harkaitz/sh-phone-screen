@@ -4,31 +4,12 @@
 
 phone-screen
 
-    Usage: phone-screen [OPTS...] SCREENSHOT
+    Usage: phone-screen [-f FRAME] { -o OFILE SCREENSHOT | SCREENSHOTS... }
     
-    Embed screenshot in a phone frame and output a SVG. Supported
-    frames are: "x49tf".
+    Embed screenshot in a phone frame and output a SVG. When no "-o" is given
+    then the output name is "SCREENSHOT.FRAME.png".
     
-        -H        : Put the svg between "<html><body>".
-        -f FRAME  : Set the frame.
-        -w WIDTH  : SVG width.
-        -o OUTPUT : Output filename.
-
-## Example:
-
-Executing the following.
-
-    > phone-screen -o example-o.svg example-i.jpg
-
-<table>
-  <tbody>
-    <tr>
-      <td> <img src="./example-i.jpg" width="300"/> </td>
-      <td> <h1>→</h1> </td>
-      <td> <img src="./example-o.svg" width="300"/> </td>
-    </tr>
-  </tbody>
-</table>
+    Supported frames: x49tf
 
 ## Collaborating
 

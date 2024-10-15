@@ -21,26 +21,21 @@
 #L:  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #L:  SOFTWARE.
 ##:
-#h: Usage: phone-screen [OPTS...] SCREENSHOT
+#h: Usage: phone-screen [-f FRAME] { -o OFILE SCREENSHOT | SCREENSHOTS... }
 #h:
-#h: Embed screenshot in a phone frame and output a SVG. Supported
-#h: frames are: "x49tf".
+#h: Embed screenshot in a phone frame and output a SVG. When no "-o" is given
+#h: then the output name is "SCREENSHOT.FRAME.png".
 #h:
-#h:     -H        : Put the svg between "<html><body>".
-#h:     -f FRAME  : Set the frame.
-#h:     -w WIDTH  : SVG width.
-#h:     -o OUTPUT : Output filename.
+#h: Supported frames: x49tf
 ##:
 phone_screen() {
-    local OPTIND optopt h1= h2= frame="x49tf" output= width="200" adapt=
+    local OPTIND optopt frame="x49tf" output= input
     
     ## Parse command line arguments.
-    while getopts "Hf:w:o:" optopt; do
+    while getopts "f:o:" optopt; do
         case $optopt in
             f)  frame="${OPTARG}";;
-            w)  width="${OPTARG}";;
-            o)  output="${OPTARG}";;
-            H)  h1="<html><body>" h2="</html></body>";;
+            o)  output="${OPTARG}";; # For compativility.
             \?) return 1;;
         esac
     done
@@ -49,63 +44,50 @@ phone_screen() {
         echo >&2 "error: Please specify a screenshot."
         return 1
     fi
-    if test ! -n "${output}"; then
-        echo >&2 "error: Specify output the file with -o."
-        return 1
-    fi
 
     ## Calculate sizes.
     case "${frame}" in
         x49tf)
-            local viewBox="0 0 300 620"
-            local bX="10"
-            local bY="60"
-            local bWidth="275"
-            local bHeight="500"
-            local background="data:image/png;base64, $(base64 "${PHONE_SCREEN_PATH}/x49tf.png" | tr -d '\n')"
+            local screen_width="230"
+            local screen_height="415"
+            local screen_pos_x="10"
+            local screen_pos_y="50"
+            local background="${PHONE_SCREEN_PATH}/x49tf.png"
             ;;
         *)
             echo >&2 "error: Unknown frame: ${frame}"
             return 1
             ;;
     esac
-
-    ## Calculate URLs.
-    if test -e "$1"; then
-        local format="$(basename "$1" | sed 's|.*\.||')"
-        local screenshot="data:image/${format};base64, $(base64 "$1" | tr -d '\n')"
-    else
-        local screenshot="$1"
-    fi
-
-    ## Create SVG.
-    local x1='<!DOCTYPE svg PUBLIC "-//w3c//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/svg11.dtd">'
-    local x2='<?xml version="1.0" encoding="utf-8"?>'
-    cat <<-EOF > "${output}"
-	${h1:-${x2}
-	${x1}}
-	<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}"  viewBox="${viewBox}">
-	  <!-- Screenshot -->
-	  <image xlink:href="${screenshot}"
-	         x="${bX}" y="${bY}"
-	         clip-path="url(#clip)"
-	         width="${bWidth}"/>
-	  <!-- Box -->
-	  <defs>
-	    <clipPath id="clip">
-	      <rect x="${bX}" y="${bY}" width="${bWidth}" height="${bHeight}" />
-	    </clipPath>
-	  </defs>
-	  <!-- Background image -->
-	  <image xlink:href="${background}" width="100%" />
-	</svg>
-	${h2}
-	EOF
+    
+    ## For each input.
+    for input in "$@"; do
+        if test ! -n "${output}"; then
+            output="${input%.*}.${frame}.png"
+        fi
+        convert "${input}"                       \
+                -resize "${screen_width}x"       \
+                -gravity North                   \
+                -crop 230x"${screen_height}+0+0" \
+                "${output}.cropped.png"
+        composite                   \
+            -geometry +"${screen_pos_x}"+"${screen_pos_y}" \
+            "${output}.cropped.png" \
+            "${background}"         \
+            "${output}.screened.png"
+        composite \
+            "${background}" \
+            "${output}.screened.png" \
+            "${output}"
+        rm -f "${output}.cropped.png" "${output}.screened.png"
+        echo "${output}"
+        output=
+    done
 }
 
 ## -------------------------------------------------------------------
 PHONE_SCREEN_PATH="$(dirname "$0")/../share/phone-screen"
-if test @"$(basename "$0")" = @"phone-screen";then
+if test @"${SCRNAME:-$(basename "$0")}" = @"phone-screen"; then
     case "${1}" in
         ''|-h|--help) 
             sed -n 's/^ *#h: \{0,1\}//p' "$0"
